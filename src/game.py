@@ -90,7 +90,7 @@ class Game:
     SCREEN_SIZE: ClassVar[tuple[int, int]] = (1280, 780)
 
     def __init__(self) -> None:
-        self.color: tuple[int, int, int] = (randint(0, 255), randint(0, 255), randint(0, 255))
+        self.color: tuple[int, int, int] = get_color()
 
         self.running: bool = False
         self.mode: Mode = Mode.NONE
@@ -133,28 +133,34 @@ class Game:
         match event.type:
             case pygame.KEYDOWN:
                 self.handle_keydown(event)
+
             case pygame.QUIT:
-                self.running &= False
+                self.running = False
+
             case pygame.MOUSEBUTTONDOWN:
                 self.handle_mousebuttondown(event)
+
             case pygame.MOUSEBUTTONUP:
                 self.handle_mousebuttonup(event)
+
             case pygame.MOUSEMOTION:
                 self.handle_mousemotion(event)
 
     def handle_keydown(self, event: pygame.event.Event) -> None:
         match (self.mode, event.key):
             case (_, pygame.K_ESCAPE):
-                self.running &= False
+                self.running = False
 
     def handle_mousebuttondown(self, event: pygame.event.Event) -> None:
         match (self.mode, event.button):
-            case (_, pygame.BUTTON_LEFT):
-                self.color = (randint(0, 255), randint(0, 255), randint(0, 255))
-            case (_, pygame.BUTTON_MIDDLE):
-                self.mode = Mode.DRAG
-            case (_, pygame.BUTTON_RIGHT):
+            case (Mode.NONE, pygame.BUTTON_LEFT):
+                self.color = get_color()
+
+            case (Mode.NONE, pygame.BUTTON_RIGHT):
                 self.camera_position = self.ZERO.copy()
+
+            case (Mode.NONE, pygame.BUTTON_MIDDLE):
+                self.mode = Mode.DRAG
 
     def handle_mousebuttonup(self, event: pygame.event.Event) -> None:
         match (self.mode, event.button):
@@ -174,3 +180,7 @@ class Game:
         self.running = True
         while self.running:
             self.frame()
+
+
+def get_color() -> tuple[int, int, int]:
+    return (randint(0, 255), randint(0, 255), randint(0, 255))
