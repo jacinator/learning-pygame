@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from enum import Flag, auto
 from random import randint
 from typing import ClassVar, Self
@@ -33,48 +34,71 @@ class Chunk:
         )
 
 
-class Debug:
+class TextBox:
     BG: ClassVar[tuple[int, int, int, int]] = (0, 0, 0, 100)
     FG: ClassVar[tuple[int, int, int, int]] = (255, 255, 255, 255)
 
+    FONT_FAMILY: ClassVar[str] = "monospace"
     FONT_SIZE: ClassVar[int] = 13
 
     PADDING: ClassVar[tuple[int, int]] = (15, 5)
-    POSITION: ClassVar[tuple[int, int]] = (10, 10)
 
-    def __init__(self, game: Game) -> None:
-        self.game: Game = game
-        self.font: pygame.font.Font = pygame.font.SysFont("monospace", self.FONT_SIZE)
+    def __init__(self, surface: pygame.Surface, position: tuple[int, int]) -> None:
+        self.font: pygame.font.Font = pygame.font.SysFont(
+            self.FONT_FAMILY, self.FONT_SIZE
+        )
+        self.position: tuple[int, int] = position
+        self.surface: pygame.Surface = surface
+
+    def __iter__(self) -> Generator[str]:
+        yield from ()
+
+    def _get_background(self, x: int, y: int) -> pygame.Surface:
+        surface: pygame.Surface = pygame.Surface(
+            (self.PADDING[0] * 2 + x, self.PADDING[1] * 2 + y)
+        )
+        surface.fill(self.BG)
+        surface.set_alpha(self.BG[-1])
+        return surface
+
+    def _get_foreground(self) -> Generator[pygame.Surface]:
+        text: str
+        for text in self:
+            surface: pygame.Surface = self.font.render(text, 1, self.FG)
+            surface.set_alpha(self.FG[-1])
+            yield surface
 
     def render(self) -> None:
-        text: tuple[str, ...] = (
-            f"Camera position: {self.game.camera_position}",
-            f"Mouse position: {self.game.mouse_position}",
-            f"Event mode: {self.game.mode}",
-        )
-        lines: tuple[pygame.Surface, ...] = tuple(
-            self.font.render(t, 1, self.FG) for t in text
+        fg: tuple[pygame.Surface, ...] = tuple(self._get_foreground())
+        lh: int = fg[0].get_height()
+
+        bg: pygame.Surface = self._get_background(
+            max(x.get_width() for x in fg), lh * len(fg)
         )
 
-        bg: pygame.Surface = pygame.Surface(
-            (
-                self.PADDING[0] * 2 + max(i.get_width() for i in lines),
-                self.PADDING[1] * 2 + sum(i.get_height() for i in lines),
-            ),
+        x: int = self.PADDING[0] + self.position[0]
+        y: int = self.PADDING[1] + self.position[1]
+
+        blits: Generator[tuple[pygame.Surface, tuple[int, int]]] = (
+            (b, (x, lh * a + y)) for a, b in enumerate(fg)
         )
-        bg.fill(self.BG)
-        bg.set_alpha(self.BG[-1])
+        self.surface.blits(((bg, self.position), *blits))
 
-        self.game.surface.blit(bg, self.POSITION)
 
-        position_x: int = self.POSITION[0] + self.PADDING[0]
-        position_y: int = self.POSITION[1] + self.PADDING[1]
+class AlertTextBox(TextBox):
+    def __iter__(self) -> Generator[str]:
+        yield "Try your mouse buttons!"
 
-        line: pygame.Surface
-        for line in lines:
-            line.set_alpha(self.FG[-1])
-            self.game.surface.blit(line, (position_x, position_y))
-            position_y += line.get_height()
+
+class DebugTextBox(TextBox):
+    def __init__(self, game: Game, position: tuple[int, int]) -> None:
+        self.game: Game = game
+        super().__init__(game.surface, position)
+
+    def __iter__(self) -> Generator[str]:
+        yield f"Camera position: {self.game.camera_position}"
+        yield f"Mouse position: {self.game.mouse_position}"
+        yield f"Event mode: {self.game.mode}"
 
 
 class Mode(Flag):
@@ -106,7 +130,10 @@ class Game:
         self.rect: pygame.Rect = pygame.Rect((0, 0), self.SCREEN_SIZE)
         self.surface: pygame.Surface = pygame.display.set_mode(self.SCREEN_SIZE)
 
-        self.debug: Debug = Debug(self)
+        self.surface.get_width()
+        self.alert: TextBox = AlertTextBox(self.surface, (10, 80))
+        self.debug: TextBox = DebugTextBox(self, (10, 10))
+
         self.chunk: Chunk = Chunk(self)
 
         return self
@@ -119,6 +146,7 @@ class Game:
         self.surface.fill(self.color)
 
         self.chunk.render()
+        self.alert.render()
         self.debug.render()
 
         pygame.display.flip()
