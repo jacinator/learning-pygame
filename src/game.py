@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Flag, auto
+from random import randint
 from typing import ClassVar, Self
 
 import pygame
@@ -83,16 +84,19 @@ class Mode(Flag):
 
 class Game:
     FRAMERATE: ClassVar[int] = 60
+    ZERO: pygame.Vector2 = pygame.Vector2((0, 0))
 
     SCREEN_NAME: ClassVar[str] = "Middle Earth"
     SCREEN_SIZE: ClassVar[tuple[int, int]] = (1280, 780)
 
     def __init__(self) -> None:
+        self.color: tuple[int, int, int] = (randint(0, 255), randint(0, 255), randint(0, 255))
+
         self.running: bool = False
         self.mode: Mode = Mode.NONE
 
-        self.camera_position: pygame.Vector2 = pygame.Vector2((0, 0))
-        self.mouse_position: pygame.Vector2 = pygame.Vector2((0, 0))
+        self.camera_position: pygame.Vector2 = self.ZERO.copy()
+        self.mouse_position: pygame.Vector2 = self.ZERO.copy()
 
     def __enter__(self) -> Self:
         pygame.init()
@@ -112,7 +116,7 @@ class Game:
 
     def frame(self) -> None:
         self.handle_events()
-        self.surface.fill((102, 0, 51))
+        self.surface.fill(self.color)
 
         self.chunk.render()
         self.debug.render()
@@ -145,8 +149,12 @@ class Game:
 
     def handle_mousebuttondown(self, event: pygame.event.Event) -> None:
         match (self.mode, event.button):
+            case (_, pygame.BUTTON_LEFT):
+                self.color = (randint(0, 255), randint(0, 255), randint(0, 255))
             case (_, pygame.BUTTON_MIDDLE):
                 self.mode = Mode.DRAG
+            case (_, pygame.BUTTON_RIGHT):
+                self.camera_position = self.ZERO.copy()
 
     def handle_mousebuttonup(self, event: pygame.event.Event) -> None:
         match (self.mode, event.button):
